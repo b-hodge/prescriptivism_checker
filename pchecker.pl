@@ -277,20 +277,20 @@ for(my $k = 0; $k < @resultarray; $k++) {
 	}	
 }
 
-# # PIED PIPING
-# my $ppTag = "";
-# my $ppNum = 0;
-# for my $i (0 .. @matrix-1) {
-# 	$ppTag = "";
-# 	$ppTag = $matrix[$i][1];
-# 	if ($ppTag eq 'IN') {
-# 		if (($matrix[$i+1][1] eq 'WDT') || ($matrix[$i+1][1] eq 'WP') ($matrix[$i+1][1] eq 'WP$')) {
-# 			if ($i > 0 && not ($matrix[$i-1][1] eq ',')) {
-# 				++$ppNum;
-# 			}
-# 		}
-# 	}
-# }
+# PIED PIPING
+my $ppTag = "";
+my $ppNum = 0;
+for my $i (0 .. @matrix-1) {
+	$ppTag = "";
+	$ppTag = $matrix[$i][1];
+	if ($ppTag eq 'IN') {
+		if (($matrix[$i+1][1] eq 'WDT') || ($matrix[$i+1][1] eq 'WP') || ($matrix[$i+1][1] eq 'WP$')) {
+			if ($i > 0 && not ($matrix[$i-1][1] eq ',')) {
+				++$ppNum;
+			}
+		}
+	}
+}
 #$ppNum = $ppNum / $verbiness;
 
 # # SPLIT INFINITIVES
@@ -317,7 +317,7 @@ if (exists($wordfreq{'comprised'}) || exists($wordfreq{'Comprised'})) {
 	for(my $k = 0; $k < @resultarray; $k++) {
 		if ($words[$k] eq "comprised" || $words[$k] eq "Comprised") {
 			if ($words[$k + 1] eq "of") {
-			$numComprisedOf++;
+				$numComprisedOf++;
 			}
 		}	
 	}
@@ -330,6 +330,20 @@ if (exists($wordfreq{'shall'}) || exists($wordfreq{'Shall'})) {
 		if ($words[$k] eq "shall" || $words[$k] eq "Shall") {
 			$numShall++;
 		}	
+	}
+}
+
+# HYPERCORRECT WHOM
+my $numHyperWhom = 0;
+if (exists($wordfreq{'whom'}) || exists($wordfreq{'Whom'})) {
+	for(my $k = 0; $k < @resultarray; $k++) {
+		if ($words[$k] eq "whom" || $words[$k] eq 'Whom') {
+			if ($tags[$k+1] eq "VBD" || $tags[$k+1] eq "VBG"
+				|| $tags[$k+1] eq "VBN" || $tags[$k+1] eq "VBP"
+				|| $tags[$k+1] eq "VBZ") {
+				$numHyperWhom++;
+			}
+		}
 	}
 }
 
@@ -350,4 +364,5 @@ print "contractions count = $contTotal\n";
 print "total number of prepositions = $totalPrep\n";
 print "sentence final prepositions = $finalPrep\n";
 print "Occurrences of 'Comprised of' = $numComprisedOf\n";
-print "Occurrences of 'shall' = $numShall\n"
+print "Occurrences of 'shall' = $numShall\n";
+print "Instances of hyper-correct whom = $numHyperWhom\n";
