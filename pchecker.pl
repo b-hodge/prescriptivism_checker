@@ -12,7 +12,7 @@ my $filename = $ARGV[0];
 my $stem_filename = $ARGV[1];
 open(my $filehandle, '<', $filename) or die "Could not open $filename\n";
 
-# Split on " " into array @resultarray
+# Split original file on " " into array @resultarray
 my @resultarray;
 while(my $line = <$filehandle>) {
 	chomp $line;
@@ -20,6 +20,20 @@ while(my $line = <$filehandle>) {
 	push(@resultarray, @linearray);
 }
 #print("$resultarray[0]\n");
+
+# Open the stemmed file
+open(my $stem_filehandle, '<', $stem_filename) or die "Could not open $stem_filename\n";
+
+# Split stemmed file on " " into array @stemresultarray
+my @stemresultarray;
+while (my $line = <$stem_filehandle>) {
+	chomp $line;
+	# Note the scope of @linearray - no conflict with reuse
+	my @linearray = split(" ", $line);
+	push(@stemresultarray, @linearray);
+}
+print("@stemresultarray\n");
+
 
 ###################################################################################
 #																				  #
@@ -54,6 +68,8 @@ my %tagfreq;
 for (@tags) {
 	$tagfreq{$_}++;
 }
+
+
 # Print statements for debugging
 
 #print("\n");
@@ -347,6 +363,51 @@ if (exists($wordfreq{'whom'}) || exists($wordfreq{'Whom'})) {
 	}
 }
 
+###################################################################################
+#																				  #
+#	STEMMING VARIABLES															  #
+#																				  #
+###################################################################################
+
+# TTR
+my $ttr1 = 0;
+my $ttr2 = 0;
+my $ttr3 = 0;
+my $slope1 = 0;
+my $slope2 = 0;
+my %window1_hash;
+my %window2_hash;
+my %window3_hash;
+
+# First check that the sample is long enough
+if(@stemresultarray < 150) {
+	print "Sample not long enough for TTR.\n";
+	print "Writing 'NA' instead.\n";
+	$ttr1 = "NA";
+	$ttr2 = "NA";
+	$ttr3 = "NA";
+	$slope1 = "NA";
+	$slope2 = "NA";
+
+} else {	# else calculate TTR!
+	# Set up hashes for each window
+	foreach(@resultarray[0..49]) {
+		$window1_hash{$_}++;
+	}
+	foreach(@resultarray[50..99]) {
+		$window2_hash{$_}++;
+	}
+	foreach(@resultarray[99..149]) {
+		$window3_hash{$_}++;
+	}
+
+	# Calculate TTRs
+	# Note that # of tokens is ALWAYS 50
+	$ttr1 = (keys %window1_hash) / 50;
+	$ttr2 = (keys %window2_hash) / 50;
+	$ttr3 = (keys %window3_hash) / 50;
+}
+
 print "numWords = $numWords\n";
 print "numSentences = $numSentences\n";
 print "progVerb = $progVerb\n";
@@ -366,3 +427,6 @@ print "sentence final prepositions = $finalPrep\n";
 print "Occurrences of 'Comprised of' = $numComprisedOf\n";
 print "Occurrences of 'shall' = $numShall\n";
 print "Instances of hyper-correct whom = $numHyperWhom\n";
+print "TTR for window 1 = $ttr1\n";
+print "TTR for window 2 = $ttr2\n";
+print "TTR for window 3 = $ttr3\n";
