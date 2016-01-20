@@ -1,5 +1,5 @@
 # Author: Brian Hodge
-# Last Modified: Nov 20, 2015
+# Last Modified: Jan 15, 2016
 
 use strict;
 use warnings;
@@ -33,6 +33,10 @@ while (my $line = <$stem_filehandle>) {
 	push(@stemresultarray, @linearray);
 }
 print("@stemresultarray\n");
+
+# NOTE:
+# stemresultarray is not currently tagged - it's just a 1d list of the stemmed input text. 
+# This is sufficient for current purposes, but will probably need to be changed later.
 
 
 ###################################################################################
@@ -363,6 +367,22 @@ if (exists($wordfreq{'whom'}) || exists($wordfreq{'Whom'})) {
 	}
 }
 
+# HOPEFULLY
+my $numClauseInitialHopefully = 0;
+# We want to count the num occurrences of "hopefully" where it is NOT preceded by a verb
+# Set of verb tags: VB, VBD, VBG, VBN, VBP, VBZ
+if (exists($wordfreq{'hopefully'}) || exists($wordfreq{'Hopefully'})) {
+	for(my $k = 0; $k < @resultarray; $k++) {
+		if ($words[$k] eq 'hopefully' || $words[$k] eq 'Hopefully') {
+			if ($tags[$k-1] ne "VB" && $tags[$k-1] ne "VBD" && $tags[$k-1] ne "VBG"
+				&& $tags[$k-1] ne "VBN" && $tags[$k-1] ne "VBP" && $tags[$k-1] ne "VBZ") {
+				$numClauseInitialHopefully++;
+			}
+		}
+	}
+}
+
+
 ###################################################################################
 #																				  #
 #	STEMMING VARIABLES															  #
@@ -408,6 +428,95 @@ if(@stemresultarray < 150) {
 	$ttr3 = (keys %window3_hash) / 50;
 }
 
+# MODALITY
+# We want num. occurrences of the following constructions:
+#	need(s/ed) to
+#	have(has/had) to
+#	must
+#	ought to
+#	should
+
+my $numNeedTo = 0;
+my $numHaveTo = 0;
+my $numMust = 0;
+my $numOughtTo = 0;
+my $numShould = 0;
+
+# Find every occurrence of 'need' in the stemmed array, and if it's followed by 'to', increment
+for(my $k = 0; $k < @stemresultarray; $k++) {
+	if ($stemresultarray[$k] eq "need" || $stemresultarray[$k] eq "Need") {
+		# Make sure we're not going to read past the end of the array
+		if ($k != @stemresultarray-1) {
+			if ($stemresultarray[$k+1] eq "to") {
+				$numNeedTo++;
+			}
+		}	
+	}	
+}
+
+# Find every occurrence of 'have' in the stemmed array, and if it's followed by 'to', increment
+for(my $k = 0; $k < @stemresultarray; $k++) {
+	if ($stemresultarray[$k] eq "have" || $stemresultarray[$k] eq "Have") {
+		# Make sure we're not going to read past the end of the array
+		if ($k != @stemresultarray-1) {
+			if ($stemresultarray[$k+1] eq "to") {
+				$numHaveTo++;
+			}
+		}	
+	}	
+}
+
+# Find every occurrence of 'must' in the stemmed array, increment
+for(my $k = 0; $k < @stemresultarray; $k++) {
+	if ($stemresultarray[$k] eq "must" || $stemresultarray[$k] eq "Must") {
+		$numMust++;
+	}	
+}
+
+# Find every occurrence of 'ought' in the stemmed array, and if it's followed by 'to', increment
+for(my $k = 0; $k < @stemresultarray; $k++) {
+	if ($stemresultarray[$k] eq "ought" || $stemresultarray[$k] eq "Ought") {
+		# Make sure we're not going to read past the end of the array
+		if ($k != @stemresultarray-1) {
+			if ($stemresultarray[$k+1] eq "to") {
+				$numOughtTo++;
+			}
+		}	
+	}	
+}
+
+# Find every occurrence of 'should' in the stemmed array, increment
+for(my $k = 0; $k < @stemresultarray; $k++) {
+	if ($stemresultarray[$k] eq "should" || $stemresultarray[$k] eq "Should") {
+		$numShould++;
+	}	
+}
+
+# ACTIVE VOICE
+# We want num. occurrences of the following construction:
+#	A conjugated form of BE followed by a VBN tag
+# Output this number divided by verbiness
+
+# First, find every occurrence of "be" in stemresultarray
+my $numPassive = 0;
+my $numPassiveNormalized = 0;
+for(my $k = 0; $k < @stemresultarray; $k++) {
+	if ($stemresultarray[$k] eq "be" || $stemresultarray[$k] eq "Be") {
+		# Make sure we're not going to read past the end of the array
+		if ($k != @stemresultarray-1) {
+			# If that occurrence of "be" is followed by a VVN tag, 
+			# we've found a passive voice construction
+			if ($tags[$k+1] eq "VBN") {
+				$numPassive++;
+			}
+		}
+	}
+}
+$numPassiveNormalized = $numPassive / $verbiness;
+
+
+
+
 print "numWords = $numWords\n";
 print "numSentences = $numSentences\n";
 print "progVerb = $progVerb\n";
@@ -430,3 +539,11 @@ print "Instances of hyper-correct whom = $numHyperWhom\n";
 print "TTR for window 1 = $ttr1\n";
 print "TTR for window 2 = $ttr2\n";
 print "TTR for window 3 = $ttr3\n";
+print "numNeedTo = $numNeedTo\n";
+print "numHaveTo = $numHaveTo\n";
+print "numMust = $numMust\n";
+print "numOughtTo = $numOughtTo\n";
+print "numShould = $numShould\n";
+print "numClauseInitialHopefully = $numClauseInitialHopefully\n";
+print "numPassive = $numPassive\n";
+print "numPassiveNormalized = $numPassiveNormalized\n";
