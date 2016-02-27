@@ -1,8 +1,15 @@
 # Author: Brian Hodge
-# Last Modified: Jan 15, 2016
+# Last Modified: Feb 10, 2016
 
+# Best practices
 use strict;
 use warnings;
+
+# Use Tie for outputting to CSV
+use Tie::Array::CSV;
+
+# Output to "prescriptivism_output.csv" in the root project directory
+my $output_filename = '../prescriptivism_output.csv';
 
 my @words;
 my @tags;
@@ -10,6 +17,8 @@ my @tags;
 # file processing handling
 my $filename = $ARGV[0];
 my $stem_filename = $ARGV[1];
+my $essay_id = $ARGV[2];
+
 open(my $filehandle, '<', $filename) or die "Could not open $filename\n";
 
 # Split original file on " " into array @resultarray
@@ -32,11 +41,9 @@ while (my $line = <$stem_filehandle>) {
 	my @linearray = split(" ", $line);
 	push(@stemresultarray, @linearray);
 }
-print("@stemresultarray\n");
+#print("@stemresultarray\n");
 
-# NOTE:
-# stemresultarray is not currently tagged - it's just a 1d list of the stemmed input text. 
-# This is sufficient for current purposes, but will probably need to be changed later.
+
 
 
 ###################################################################################
@@ -272,19 +279,6 @@ if (exists($wordfreq{'\'d'})) {
 
 $contTotal = $ntCount + $sCount + $dCount;
 
-# ACTIVE VOICE
-#my $numPassive = 0;
-#my $activeString = "";
-#for my $i (0 .. @matrix-1) {
-#	$activeString = $matrix[$i][0];
-#	if (($activeString eq 'am') || ($activeString eq 'are') || ($activeString eq 'is')
-#		|| ($activeString eq 'was') || ($activeString eq 'were') || ($activeString eq 'been')
-#		|| ($activeString eq 'be') || ($activeString eq 'being')) {
-#		if ()
-#	}
-	
-#}
-
 # LOOP FOR PREPOSITIONS
 my $totalPrep = 0;
 my $finalPrep = 0;
@@ -380,6 +374,45 @@ if (exists($wordfreq{'hopefully'}) || exists($wordfreq{'Hopefully'})) {
 			}
 		}
 	}
+}
+
+# THE THAT-RULE
+# We want:
+#   a) - Number of occurrences of "that" as a restrictive relativizer
+#   b) - Number of occurrences of "which" as a restrictive relativizer
+my $that_restrictive = 0;
+if (exists($wordfreq{'that'}) || exists($wordfreq{'That'})) {
+    for (my $k = 0; $k < @resultarray; $k++) {
+        if ($words[$k] eq 'that' || $words[$k] eq 'That') {
+            if ($tags[$k] eq 'DD1' && $k != 0) {
+                if ($words[$k-1] eq ',') {
+                    $that_restrictive += 1;
+                }
+            }
+        }
+    }
+}
+
+my $which_restrictive = 0;
+if (exists($wordfreq{'which'}) || exists($wordfreq{'Which'})) {
+    for (my $k = 0; $k < @resultarray; $k++) {
+        if ($words[$k] eq 'which' || $words[$k] eq 'Which') {
+            if ($tags[$k] eq 'DDQ' && $k != 0) {
+                if ($words[$k-1] eq ',') {
+                    $that_restrictive += 1;
+                }
+            }
+        }
+    }
+}
+
+# DON'T SPLIT INFINITIVES
+# We want number of occurrences of 'to' as an infinitive marker, but NOT followed by a VVI-tagged verb
+my $num_split_infinitives = 0;
+for (my $k = 0; $k < @resultarray; $k++) {
+    if (tags[$k] eq 'TO' && tags[$k+1] ne 'VVI') {
+        $num_split_infinitives += 1;
+    }
 }
 
 
@@ -514,36 +547,50 @@ for(my $k = 0; $k < @stemresultarray; $k++) {
 }
 $numPassiveNormalized = $numPassive / $verbiness;
 
+###################################################################################
+#																				  #
+#	PRINT TO FILE															  	  #
+#																				  #
+###################################################################################
 
+tie my @output, 'Tie::Array::CSV', $output_filename;
+push(@output, [$essay_id, $numWords, $numSentences, $progVerb, $avgWordLength, $avgSentenceLength,
+	$nouniness, $verbiness, $avgNGramLength, $longestLength, $longest, $secondLongest,
+	$thirdLongest, $contTotal, $totalPrep, $finalPrep, $numComprisedOf, $numShall,
+	$numHyperWhom, $ttr1, $ttr2, $ttr3, $numNeedTo, $numHaveTo, $numMust, $numOughtTo,
+	$numShould, $numClauseInitialHopefully, $numPassive, $numPassiveNormalized]);
+untie @output;
 
+# OUTPUT TO STD OUT
 
-print "numWords = $numWords\n";
-print "numSentences = $numSentences\n";
-print "progVerb = $progVerb\n";
-print "Avg word length = $avgWordLength\n";
-print "Avg sentence length = $avgSentenceLength\n";
-print "nouniness = $nouniness\n";
-print "verbiness = $verbiness\n";
-print "NP COMPLEXITY:\n";
-print "Average n-gram length = $avgNGramLength\n";
-print "Length of longest n-gram = $longestLength\n";
-print "Longest n-gram: $longest\n";
-print "Second longest n-gram: $secondLongest\n";
-print "Third longest n-gram: $thirdLongest\n";
-print "contractions count = $contTotal\n";
-print "total number of prepositions = $totalPrep\n";
-print "sentence final prepositions = $finalPrep\n";
-print "Occurrences of 'Comprised of' = $numComprisedOf\n";
-print "Occurrences of 'shall' = $numShall\n";
-print "Instances of hyper-correct whom = $numHyperWhom\n";
-print "TTR for window 1 = $ttr1\n";
-print "TTR for window 2 = $ttr2\n";
-print "TTR for window 3 = $ttr3\n";
-print "numNeedTo = $numNeedTo\n";
-print "numHaveTo = $numHaveTo\n";
-print "numMust = $numMust\n";
-print "numOughtTo = $numOughtTo\n";
-print "numShould = $numShould\n";
-print "numClauseInitialHopefully = $numClauseInitialHopefully\n";
-print "numPassive = $numPassive\n";
-print "numPassiveNormalized = $numPassiveNormalized\n";
+# print "essay_id = $essay_id\n";
+# print "numWords = $numWords\n";
+# print "numSentences = $numSentences\n";
+# print "progVerb = $progVerb\n";
+# print "Avg word length = $avgWordLength\n";
+# print "Avg sentence length = $avgSentenceLength\n";
+# print "nouniness = $nouniness\n";
+# print "verbiness = $verbiness\n";
+# print "NP COMPLEXITY:\n";
+# print "Average n-gram length = $avgNGramLength\n";
+# print "Length of longest n-gram = $longestLength\n";
+# print "Longest n-gram: $longest\n";
+# print "Second longest n-gram: $secondLongest\n";
+# print "Third longest n-gram: $thirdLongest\n";
+# print "contractions count = $contTotal\n";
+# print "total number of prepositions = $totalPrep\n";
+# print "sentence final prepositions = $finalPrep\n";
+# print "Occurrences of 'Comprised of' = $numComprisedOf\n";
+# print "Occurrences of 'shall' = $numShall\n";
+# print "Instances of hyper-correct whom = $numHyperWhom\n";
+# print "TTR for window 1 = $ttr1\n";
+# print "TTR for window 2 = $ttr2\n";
+# print "TTR for window 3 = $ttr3\n";
+# print "numNeedTo = $numNeedTo\n";
+# print "numHaveTo = $numHaveTo\n";
+# print "numMust = $numMust\n";
+# print "numOughtTo = $numOughtTo\n";
+# print "numShould = $numShould\n";
+# print "numClauseInitialHopefully = $numClauseInitialHopefully\n";
+# print "numPassive = $numPassive\n";
+# print "numPassiveNormalized = $numPassiveNormalized\n";
