@@ -1,5 +1,5 @@
 # Author: Brian Hodge
-# Last Modified: Feb 10, 2016
+# Last Modified: March 21, 2016
 
 # Best practices
 use strict;
@@ -19,7 +19,14 @@ my $filename = $ARGV[0];
 my $stem_filename = $ARGV[1];
 my $essay_id = $ARGV[2];
 
+my $entire_file;
 open(my $filehandle, '<', $filename) or die "Could not open $filename\n";
+{
+    local $/;
+    $entire_file = <$filehandle>;
+}
+# Reset $filehandle
+seek $filehandle, 0, 0;
 
 # Split original file on " " into array @resultarray
 my @resultarray;
@@ -116,26 +123,11 @@ for (@tags) {
 my $numWords = 0;
 my $numSentences = 0;
 my $numPunctuation = 0;
-# Number of sentences = number of '.' tags (includes all full-stops)
-if (exists($tagfreq{'.'})) {
-	$numSentences += $tagfreq{'.'};
-}
+# Number of sentences = number of '.' tags + '?' tags + '!' tags
+$numSentences += $tagfreq{'.'} + $tagfreq{'?'} + $tagfreq{'!'};
+
 # Number of punctuation tokens
-if (exists($tagfreq{'.'})) {
-	$numPunctuation += $tagfreq{'.'};
-}
-if (exists($tagfreq{','})) {
-	$numPunctuation += $tagfreq{','};
-}
-if (exists($tagfreq{':'})) {
-	$numPunctuation += $tagfreq{':'};
-}
-if (exists($tagfreq{'"'})) {
-	$numPunctuation += $tagfreq{'"'};
-}
-if (exists($tagfreq{'``'})) {
-	$numPunctuation += $tagfreq{'``'};
-}
+$numPunctuation += $numSentences + $tagfreq{','} + $tagfreq{':'} + $tagfreq{';'} + $tagfreq{'-'} + $tagfreq{'('} + $tagfreq{')'};
 
 # Number of words = number of entries in @words - $numPunctuation
 $numWords += (@words - $numPunctuation);
@@ -143,12 +135,9 @@ $numWords += (@words - $numPunctuation);
 # PROGRESSIVE VERB FORMS FREQUENCY 
 
 my $progVerb = 0;
-if (exists($tagfreq{'VBG'})) {
-	$progVerb += $tagfreq{'VBG'};
+if (exists($tagfreq{'VVG'})) {
+	$progVerb += $tagfreq{'VVG'};
 }
-
-# AVG WORD LENGTH
-# Avg word length = (total num characters - punctuation - spaces - carriage returns) / numWords
 
 my $avgWordLength = 0;
 for(@words) {
@@ -156,135 +145,122 @@ for(@words) {
 }
 $avgWordLength -= ($numPunctuation + $numWords + $numSentences);
 $avgWordLength = $avgWordLength / $numWords;
+
 # AVG SENTENCE LENGTH
 my $avgSentenceLength = $numWords / $numSentences;
 
 # NOUNINESS
 
 my $nouniness = 0;
-if (exists($tagfreq{'NN'})) {
-	$nouniness += $tagfreq{'NN'};
+
+keys %tagfreq; # reset the internal iterator
+while(my($k, $v) = each %tagfreq) {
+    my $first_letter_of_key = substr($k, 0, 1);
+    if($first_letter_of_key eq 'N') {
+        $nouniness += $v;
+    }
 }
-if (exists($tagfreq{'NNP'})) {
-	$nouniness += $tagfreq{'NNP'};
-}
-if (exists($tagfreq{'NNPS'})) {
-	$nouniness += $tagfreq{'NNPS'};
-}
-if (exists($tagfreq{'NNS'})) {
-	$nouniness += $tagfreq{'NNS'};
-}
+
 
 # VERBINESS
 
 my $verbiness = 0;
-if (exists($tagfreq{'VB'})) {
-	$verbiness += $tagfreq{'VB'};
-}
-if (exists($tagfreq{'VBD'})) {
-	$verbiness += $tagfreq{'VBD'};
-}
-if (exists($tagfreq{'VBG'})) {
-	$verbiness += $tagfreq{'VBG'};
-}
-if (exists($tagfreq{'VBN'})) {
-	$verbiness += $tagfreq{'VBN'};
-}
-if (exists($tagfreq{'VBP'})) {
-	$verbiness += $tagfreq{'VBP'};
-}
-if (exists($tagfreq{'VBZ'})) {
-	$verbiness += $tagfreq{'VBZ'};
+
+keys %tagfreq;
+while(my($k, $v) = each %tagfreq) {
+    my $first_letter_of_key = substr($k, 0, 1);
+    if($first_letter_of_key eq 'V') {
+        $verbiness += $v;
+    }
 }
 
-# MODALITY
 
 # NP COMPLEXITY
-my $avgNGramLength = 0;
-my $longest = "";
-my $longestLength = 0;
-my $secondLongest = "";
-my $secondLongestLength = 0;
-my $thirdLongest = "";
-my $thirdLongestLength = 0;
-my $numGrams = 0;
-my $totalGramLength = 0;
-my $ngram = "";
-
-my $j = 1;
-for my $i (0 .. @matrix-1) {
-	my $ngram = "";
-	$j = 1;
-	if($matrix[$i][1] eq '.' && substr($matrix[$i-1][1], 0, 1) eq 'N') {
-		while((substr($matrix[$i-$j][1], 0, 1) eq 'N' || (substr($matrix[$i-$j][1], 0, 1) eq 'J'))) {
-			$ngram = "$matrix[$i-$j][0]" . " " . "$ngram";
-			++$j;
-		}
-	}
-
-	if ($j > 1) {
-		++$numGrams;
-		$totalGramLength += $j;
-	}
-
-	if($j-1 > $longestLength) {
-		$longest = $ngram;
-		$longestLength = $j-1;
-	}
-	elsif($j-1 > $secondLongestLength) {
-		$secondLongest = $ngram;
-		$secondLongestLength = $j-1;
-	}
-	elsif($j-1 > $thirdLongestLength) {
-		$thirdLongest = $ngram;
-		$thirdLongestLength = $j-1;
-	}
-}
-$avgNGramLength = $totalGramLength / $numGrams;
+#my $avgNGramLength = 0;
+#my $longest = "";
+#my $longestLength = 0;
+#my $secondLongest = "";
+#my $secondLongestLength = 0;
+#my $thirdLongest = "";
+#my $thirdLongestLength = 0;
+#my $numGrams = 0;
+#my $totalGramLength = 0;
+#my $ngram = "";
+#
+#my $j = 1;
+#for my $i (0 .. @matrix-1) {
+#	my $ngram = "";
+#	$j = 1;
+#	if($matrix[$i][1] eq '.' && substr($matrix[$i-1][1], 0, 1) eq 'N') {
+#		while((substr($matrix[$i-$j][1], 0, 1) eq 'N' || (substr($matrix[$i-$j][1], 0, 1) eq 'J'))) {
+#			$ngram = "$matrix[$i-$j][0]" . " " . "$ngram";
+#			++$j;
+#		}
+#	}
+#
+#	if ($j > 1) {
+#		++$numGrams;
+#		$totalGramLength += $j;
+#	}
+#
+#	if($j-1 > $longestLength) {
+#		$longest = $ngram;
+#		$longestLength = $j-1;
+#	}
+#	elsif($j-1 > $secondLongestLength) {
+#		$secondLongest = $ngram;
+#		$secondLongestLength = $j-1;
+#	}
+#	elsif($j-1 > $thirdLongestLength) {
+#		$thirdLongest = $ngram;
+#		$thirdLongestLength = $j-1;
+#	}
+#}
+#$avgNGramLength = $totalGramLength / $numGrams;
 
 # CONTRACTIONS
-my $contTotal = 0;
-my $ntCount = 0;
-my $sCount = 0;
-my $dCount = 0;
-# $ntCount
-if (exists($wordfreq{'n\'t'})) {
-	$ntCount += $wordfreq{'n\'t'};
-}
+# POTENTIAL REFACTOR: count occurrences of "'", excluding possessives
+my $apostrophe_count = $entire_file =~ tr/\'//;
+my $numContractions = $apostrophe_count - $tagfreq{'GE'};
 
-# $sCount
-if (exists($combofreq{'\'s_VB'})) {
-	$sCount += $combofreq{'\'s_VB'};
-}
-if (exists($combofreq{'\'s_VBD'})) {
-	$sCount += $combofreq{'\'s_VBD'};
-}
-if (exists($combofreq{'\'s_VBG'})) {
-	$sCount += $combofreq{'\'s_VBG'};
-}
-if (exists($combofreq{'\'s_VBN'})) {
-	$sCount += $combofreq{'\'s_VBN'};
-}
-if (exists($combofreq{'\'s_VBP'})) {
-	$sCount += $combofreq{'\'s_VBP'};
-}
-if (exists($combofreq{'\'s_VBZ'})) {
-	$sCount += $combofreq{'\'s_VBZ'};
-}
 
-# $dCount
-if (exists($wordfreq{'\'d'})) {
-	$dCount += $wordfreq{'\'d'};
-}
-
-$contTotal = $ntCount + $sCount + $dCount;
+# Contractions can end with either "n't", "'s", or "'d"
+#my $contTotal = 0;
+#my $ntCount = 0;
+#my $sCount = 0;
+#my $dCount = 0;
+## All "n't" endings are contractions
+## $ntCount
+#if (exists($wordfreq{'n\'t'})) {
+#	$ntCount += $wordfreq{'n\'t'};
+#}
+#
+## "'s" endings are contractions if their tag starts with "V"
+## $sCount
+#keys %combofreq; #reset internal iterator
+#while(my($k, $v) = each %combofreq) {
+#    # Split $k on "_"
+#    @split_key = split(/_/, $k);
+#    if ($split_key[0] eq '\'s') {
+#        if (substr($split_key[1], 0, 1) eq 'V') {
+#            $sCount += $v;
+#        }
+#    }
+#}
+#
+## $dCount
+#if (exists($wordfreq{'\'d'})) {
+#	$dCount += $wordfreq{'\'d'};
+#}
+#
+#$contTotal = $ntCount + $sCount + $dCount;
 
 # LOOP FOR PREPOSITIONS
 my $totalPrep = 0;
 my $finalPrep = 0;
-for(my $k = 0; $k < @resultarray; $k++) {
-	if ($tags[$k] eq "IN") {
-		if ($tags[$k + 1] eq ".") {
+for(my $k = 0; $k < @resultarray-1; $k++) {
+	if ($tags[$k] eq "II" || $tags[$k] eq "IF" || $tags[$k] eq "IO" || $tags[$k] eq "IW") {
+		if ($tags[$k + 1] eq "." || $tags[$k + 1] eq '!' || $tags[$k + 1] eq '?') {
 			$finalPrep++;
 		}
 		$totalPrep++;
@@ -297,8 +273,8 @@ my $ppNum = 0;
 for my $i (0 .. @matrix-1) {
 	$ppTag = "";
 	$ppTag = $matrix[$i][1];
-	if ($ppTag eq 'IN') {
-		if (($matrix[$i+1][1] eq 'WDT') || ($matrix[$i+1][1] eq 'WP') || ($matrix[$i+1][1] eq 'WP$')) {
+	if ($ppTag eq 'II' || $ppTag eq 'IF' || $ppTag eq 'IO' || $ppTag eq 'IW') {
+		if (($matrix[$i+1][1] eq 'PNQO') || ($matrix[$i+1][1] eq 'PNQS') || ($matrix[$i+1][1] eq 'DDQGE') || ($matrix[$i+1][1] eq 'DDQ')) {
 			if ($i > 0 && not ($matrix[$i-1][1] eq ',')) {
 				++$ppNum;
 			}
@@ -307,22 +283,7 @@ for my $i (0 .. @matrix-1) {
 }
 #$ppNum = $ppNum / $verbiness;
 
-# # SPLIT INFINITIVES
-# # NEEDS TO BE FINISHED
-# my $infTag = "";
-# my $infString = "";
-# my $numInf = 0;
-# for my $i (0 .. @matrix-1) {
-# 	$infTag = "";
-# 	$infString = "";
-# 	$infTag = $matrix[$i+1][0];
-# 	if ($infTag eq 'VB') {
-# 		$infString = $matrix[$i][1];
-# 		if (not $infString eq 'to') {
-			
-# 		}
-# 	}
-# }
+
 
 #COMPRISED OF
 
@@ -352,14 +313,16 @@ my $numHyperWhom = 0;
 if (exists($wordfreq{'whom'}) || exists($wordfreq{'Whom'})) {
 	for(my $k = 0; $k < @resultarray; $k++) {
 		if ($words[$k] eq "whom" || $words[$k] eq 'Whom') {
-			if ($tags[$k+1] eq "VBD" || $tags[$k+1] eq "VBG"
-				|| $tags[$k+1] eq "VBN" || $tags[$k+1] eq "VBP"
-				|| $tags[$k+1] eq "VBZ") {
-				$numHyperWhom++;
-			}
-		}
+			my $first_letter_of_tag = substr($tags[$k+1], 0, 1);
+                        if ($first_letter_of_tag eq 'V') {
+                            if (not ($tags[$k+1] eq 'VBI' || $tags[$k+1] eq 'VDI' || $tags[$k+1] eq 'VHI' || $tags[$k+1] eq 'VVI')) {
+                                $numHyperWhom++;
+                            }
+                        }
+                }
 	}
 }
+
 
 # HOPEFULLY
 my $numClauseInitialHopefully = 0;
@@ -368,10 +331,9 @@ my $numClauseInitialHopefully = 0;
 if (exists($wordfreq{'hopefully'}) || exists($wordfreq{'Hopefully'})) {
 	for(my $k = 0; $k < @resultarray; $k++) {
 		if ($words[$k] eq 'hopefully' || $words[$k] eq 'Hopefully') {
-			if ($tags[$k-1] ne "VB" && $tags[$k-1] ne "VBD" && $tags[$k-1] ne "VBG"
-				&& $tags[$k-1] ne "VBN" && $tags[$k-1] ne "VBP" && $tags[$k-1] ne "VBZ") {
-				$numClauseInitialHopefully++;
-			}
+                        if ($k == 0 || substr($tags[$k-1], 0, 1) ne 'V') {
+                            $numClauseInitialHopefully++;
+                        }
 		}
 	}
 }
@@ -409,7 +371,7 @@ if (exists($wordfreq{'which'}) || exists($wordfreq{'Which'})) {
 # DON'T SPLIT INFINITIVES
 # We want number of occurrences of 'to' as an infinitive marker, but NOT followed by a VVI-tagged verb
 my $num_split_infinitives = 0;
-for (my $k = 0; $k < @resultarray; $k++) {
+for (my $k = 0; $k < @resultarray-1; $k++) {
     if (tags[$k] eq 'TO' && tags[$k+1] ne 'VVI') {
         $num_split_infinitives += 1;
     }
@@ -539,7 +501,7 @@ for(my $k = 0; $k < @stemresultarray; $k++) {
 		if ($k != @stemresultarray-1) {
 			# If that occurrence of "be" is followed by a VVN tag, 
 			# we've found a passive voice construction
-			if ($tags[$k+1] eq "VBN") {
+			if ($tags[$k+1] eq "VVN") {
 				$numPassive++;
 			}
 		}
@@ -555,10 +517,9 @@ $numPassiveNormalized = $numPassive / $verbiness;
 
 tie my @output, 'Tie::Array::CSV', $output_filename;
 push(@output, [$essay_id, $numWords, $numSentences, $progVerb, $avgWordLength, $avgSentenceLength,
-	$nouniness, $verbiness, $avgNGramLength, $longestLength, $longest, $secondLongest,
-	$thirdLongest, $contTotal, $totalPrep, $finalPrep, $numComprisedOf, $numShall,
-	$numHyperWhom, $ttr1, $ttr2, $ttr3, $numNeedTo, $numHaveTo, $numMust, $numOughtTo,
-	$numShould, $numClauseInitialHopefully, $numPassive, $numPassiveNormalized]);
+$nouniness, $verbiness, $numContractions, $totalPrep, $finalPrep, $ppNum, $numComprisedOf, $numShall,
+$numHyperWhom, $that_restrictive, $which_restrictive, $num_split_infinitives, $ttr1, $ttr2, $ttr3, $numNeedTo, $numHaveTo, $numMust, $numOughtTo,
+$numShould, $numClauseInitialHopefully, $numPassive, $numPassiveNormalized]);
 untie @output;
 
 # OUTPUT TO STD OUT
